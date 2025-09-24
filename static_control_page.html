@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Darcy Stress Bot - Controle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; background:#0f172a; color:#f1f5f9; }
+    h1 { font-size: 1.4rem; }
+    .panel { background:#1e293b; padding:1rem 1.25rem; border-radius:8px; margin-bottom:1rem; box-shadow:0 2px 4px #0006; }
+    button { cursor:pointer; font-size:1rem; padding:0.6rem 1rem; margin:0.25rem; border-radius:6px; border:1px solid #334155; background:#334155; color:#f8fafc; }
+    button:hover { background:#475569; }
+    code { background:#334155; padding:2px 4px; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; margin-top:0.75rem; }
+    td { padding:4px 6px; border-bottom:1px solid #334155; font-size:0.9rem; }
+    input { background:#0f172a; border:1px solid #334155; border-radius:4px; padding:4px 6px; color:#f1f5f9; width:110px; }
+    label { font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; }
+    .small { font-size:0.75rem; color:#94a3b8; }
+    .ok { color:#10b981; }
+    .err { color:#f87171; }
+  </style>
+</head>
+<body>
+  <h1>Darcy Stress Bot - Controle Remoto</h1>
+  <div class="panel">
+    <p>Esta página estática (pode ser hospedada no GitHub Pages) controla o bot que roda localmente. Para funcionar, você precisa estar na mesma rede e ter a API local ativa em <code>http://SEU_PC:5000</code>. Ajuste abaixo o host local.</p>
+    <label>Host Local (API)</label><br />
+    <input id="host" value="http://localhost:5000" />
+    <button onclick="refreshStatus()">Atualizar Status</button>
+    <button onclick="startBot()">Iniciar</button>
+    <button onclick="stopBot()">Parar</button>
+  </div>
+
+  <div class="panel">
+    <h2>Status</h2>
+    <table>
+      <tbody id="statusBody"></tbody>
+    </table>
+    <div id="error" class="err"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Configuração</h2>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <label>Intervalo (s)</label><br />
+        <input id="interval" type="number" step="0.1" value="3.0" />
+      </div>
+      <div>
+        <label>Jitter (s)</label><br />
+        <input id="jitter" type="number" step="0.1" value="0.5" />
+      </div>
+    </div>
+    <button onclick="updateConfig()">Salvar Config</button>
+    <div class="small">Alterar a config não reinicia automaticamente o bot. Pare e inicie novamente para aplicar timing.</div>
+  </div>
+
+  <script>
+    async function api(path, opts={}) {
+      const host = document.getElementById('host').value.replace(/\/$/, '');
+      const res = await fetch(host + path, {headers:{'Content-Type':'application/json'}, ...opts});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    }
+    function renderStatus(data){
+      const b = document.getElementById('statusBody');
+      b.innerHTML = '';
+      const rows = Object.entries(data).map(([k,v])=>`<tr><td>${k}</td><td>${v===null?'-':v}</td></tr>`).join('');
+      b.innerHTML = rows;
+    }
+    async function refreshStatus(){
+      try { document.getElementById('error').textContent='';
+        const st = await api('/api/status');
+        renderStatus(st);
+      } catch(e){ document.getElementById('error').textContent='Falha status: '+e.message; }
+    }
+    async function startBot(){
+      try { document.getElementById('error').textContent='';
+        const r = await api('/api/start', {method:'POST'});
+        refreshStatus();
+      } catch(e){ document.getElementById('error').textContent='Falha iniciar: '+e.message; }
+    }
+    async function stopBot(){
+      try { document.getElementById('error').textContent='';
+        const r = await api('/api/stop', {method:'POST'});
+        refreshStatus();
+      } catch(e){ document.getElementById('error').textContent='Falha parar: '+e.message; }
+    }
+    async function updateConfig(){
+      try { document.getElementById('error').textContent='';
+        const payload = { interval_seconds: parseFloat(interval.value), jitter: parseFloat(jitter.value) };
+        await api('/api/config', {method:'POST', body: JSON.stringify(payload)});
+        refreshStatus();
+      } catch(e){ document.getElementById('error').textContent='Falha config: '+e.message; }
+    }
+    refreshStatus();
+    setInterval(refreshStatus, 5000);
+  </script>
+</body>
+</html>

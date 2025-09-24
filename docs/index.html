@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Darcy Stress Bot - Controle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 2rem; background:#0f172a; color:#f1f5f9; }
+    h1 { font-size: 1.4rem; }
+    .panel { background:#1e293b; padding:1rem 1.25rem; border-radius:8px; margin-bottom:1rem; box-shadow:0 2px 4px #0006; }
+    button { cursor:pointer; font-size:1rem; padding:0.6rem 1rem; margin:0.25rem; border-radius:6px; border:1px solid #334155; background:#334155; color:#f8fafc; }
+    button:hover { background:#475569; }
+    code { background:#334155; padding:2px 4px; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; margin-top:0.75rem; }
+    td { padding:4px 6px; border-bottom:1px solid #334155; font-size:0.9rem; }
+    input { background:#0f172a; border:1px solid #334155; border-radius:4px; padding:4px 6px; color:#f1f5f9; width:110px; }
+    label { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:#94a3b8; }
+    .small { font-size:0.75rem; color:#94a3b8; }
+    .err { color:#f87171; margin-top:0.25rem; }
+    .ok { color:#10b981; }
+    .grid { display:flex; gap:1rem; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <h1>Darcy Stress Bot - Controle Remoto <span id="conn" style="font-size:0.7rem;vertical-align:middle;padding:4px 8px;border-radius:6px;background:#475569;">...</span></h1>
+  <div class="panel">
+    <p>Esta página (GitHub Pages ou local) controla um bot rodando no seu computador. Para acesso via GitHub Pages você precisa expor a API em <code>https://SEU_PC:5000</code> (HTTPS) para evitar bloqueio de conteúdo misto.</p>
+    <div class="grid">
+      <div>
+        <label>Host API</label><br />
+        <input id="host" value="https://localhost:5000" />
+        <div id="mixedWarning" class="err small" style="display:none;margin-top:4px;">Página carregada em HTTPS: URLs HTTP serão bloqueadas pelo navegador.</div>
+      </div>
+      <div>
+        <label>API Key (se configurado)</label><br />
+        <input id="apiKey" placeholder="(opcional)" />
+      </div>
+      <div>
+        <label>Intervalo (s)</label><br />
+        <input id="interval" type="number" step="0.1" value="3.0" />
+      </div>
+      <div>
+        <label>Jitter (s)</label><br />
+        <input id="jitter" type="number" step="0.1" value="0.5" />
+      </div>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <button onclick="startBot()">Iniciar</button>
+      <button onclick="stopBot()">Parar</button>
+      <button onclick="refreshStatus()">Atualizar</button>
+      <button onclick="updateConfig()">Salvar Config</button>
+    </div>
+    <div class="small">Após alterar configuração de tempo, pare e inicie novamente para garantir sincronização.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Status</h2>
+    <table><tbody id="statusBody"></tbody></table>
+    <div id="error" class="err"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Métricas</h2>
+    <table><tbody id="metricsBody"></tbody></table>
+  </div>
+
+  <script>
+    const hostInput = document.getElementById('host');
+    const apiKeyInput = document.getElementById('apiKey');
+    const intervalInput = document.getElementById('interval');
+    const jitterInput = document.getElementById('jitter');
+
+    function sanitizeHost(raw){
+      let h = raw.trim();
+      if(!h) return '';
+      if(!/^https?:\/\//i.test(h)){
+        h = (window.location.protocol === 'https:' ? 'https://' : 'http://') + h;
+      }
+      return h.replace(/\/$/, '');
+    }
+
+    function checkMixedContent(host){
+      const warning = document.getElementById('mixedWarning');
+      if(window.location.protocol === 'https:' && /^http:/i.test(host)){
+        warning.style.display = 'block';
+      } else {
+        warning.style.display = 'none';
+      }
+    }
+
+    function persist(){
+      const host = sanitizeHost(hostInput.value);
+      hostInput.value = host;
+      localStorage.setItem('dsb_host', host);
+      localStorage.setItem('dsb_key', apiKeyInput.value);
+      checkMixedContent(host);
+    }
+    function loadPersist(){
+      const params = new URLSearchParams(window.location.search);
+      const hParam = params.get('host');
+      const kParam = params.get('key');
+      const storedHost = localStorage.getItem('dsb_host');
+      const storedKey = localStorage.getItem('dsb_key');
+      const host = sanitizeHost(hParam || storedHost || hostInput.value);
+      hostInput.value = host;
+      apiKeyInput.value = kParam || storedKey || '';
+      checkMixedContent(host);
+    }
+    async function api(path, opts={}) {
+      const host = sanitizeHost(hostInput.value);
+      if(!host){ throw new Error('Informe um HOST válido para a API'); }
+      const headers = {'Content-Type':'application/json'};
+      const key = apiKeyInput.value.trim();
+      if(key) headers['X-API-KEY'] = key;
+      const res = await fetch(host + path, {headers, ...opts});
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    }
+    function renderStatus(data){
+      const b = document.getElementById('statusBody');
+      b.innerHTML = '';
+      const rows = Object.entries(data).map(([k,v])=>`<tr><td>${k}</td><td>${v===null?'-':v}</td></tr>`).join('');
+      b.innerHTML = rows;
+    }
+    function renderMetrics(data){
+      const b = document.getElementById('metricsBody');
+      b.innerHTML = '';
+      const rows = Object.entries(data).map(([k,v])=>`<tr><td>${k}</td><td>${v===null?'-':(typeof v==='number' && v.toFixed ? v.toFixed(3) : v)}</td></tr>`).join('');
+      b.innerHTML = rows;
+    }
+    function setConn(ok){
+      const el = document.getElementById('conn');
+      if(ok){ el.textContent='ONLINE'; el.style.background='#15803d'; }
+      else { el.textContent='OFFLINE'; el.style.background='#b91c1c'; }
+    }
+    async function refreshStatus(){
+      try { document.getElementById('error').textContent='';
+        const [st, mt] = await Promise.all([
+          api('/api/status'),
+          api('/api/metrics')
+        ]);
+        renderStatus(st); renderMetrics(mt); setConn(true);
+      } catch(e){ document.getElementById('error').textContent='Falha status: '+e.message; setConn(false); }
+    }
+    async function startBot(){
+      try { document.getElementById('error').textContent='';
+        await api('/api/start', {method:'POST'});
+        refreshStatus();
+      } catch(e){ document.getElementById('error').textContent='Falha iniciar: '+e.message; }
+    }
+    async function stopBot(){
+      try { document.getElementById('error').textContent='';
+        await api('/api/stop', {method:'POST'});
+        refreshStatus();
+      } catch(e){ document.getElementById('error').textContent='Falha parar: '+e.message; }
+    }
+    async function updateConfig(){
+      try { document.getElementById('error').textContent='';
+        const payload = { interval_seconds: parseFloat(intervalInput.value), jitter: parseFloat(jitterInput.value) };
+        await api('/api/config', {method:'POST', body: JSON.stringify(payload)});
+        refreshStatus();
+      } catch(e){ document.getElementById('error').textContent='Falha config: '+e.message; }
+    }
+  hostInput.addEventListener('change', persist);
+  apiKeyInput.addEventListener('change', persist);
+  loadPersist();
+  refreshStatus();
+  setInterval(refreshStatus, 5000);
+  </script>
+</body>
+</html>

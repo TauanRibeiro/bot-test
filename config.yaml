@@ -1,0 +1,51 @@
+###############################
+# Configuration for Darcy Stress Bot
+###############################
+url: "https://aprender2teste.unb.br/my/"
+questions_file: "questions.txt"
+
+# Base interval between messages (seconds)
+interval_seconds: 3.0
+# +/- jitter applied randomly each cycle
+jitter: 0.5
+# Delay before trying to restart driver on failure
+restart_delay: 10.0
+
+# Porta da API Flask
+port: 5000
+
+# Run browser headless (true/false)
+headless: false
+# If true, after loading the URL the bot will pause up to manual_login_wait_seconds
+# to allow the user to authenticate manually before starting message loop.
+wait_for_manual_login: true
+manual_login_wait_seconds: 120
+
+# Capture responses from chatbot (if parsing selectors configured) and log to CSV
+capture_responses: true
+# Directory for log files
+log_dir: "logs"
+# CSV file for message & response history (inside log_dir)
+messages_csv: "messages.csv"
+
+# (Experimental) selectors to locate iframe, input and last response.
+selectors:
+	iframe_id: "tool_content"
+	input_tag: "textarea"
+	# CSS selector for the container holding messages (adjust as needed)
+	messages_container_css: ".chat-messages, .messages, .conversation"
+	# CSS selector for individual message bubbles (last one assumed to be bot reply after send)
+	message_item_css: ".message, .chat-message"
+
+# API key (defina para habilitar proteção). Se vazio, sem autenticação.
+api_key: ""
+
+# Iniciar automaticamente o bot ao subir a API
+autostart: false
+
+# HTTPS para uso com GitHub Pages (evita bloqueio de conteúdo misto)
+ssl:
+	enabled: false
+	mode: "adhoc"  # adhoc = certificado gerado automaticamente
+	cert: ""       # caminho para cert.pem se mode=cert
+	key: ""        # caminho para key.pem se mode=cert

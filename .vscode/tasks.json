@@ -1,0 +1,40 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Darcy Chatbot Tests",
+			"type": "shell",
+			"command": "py -m pytest tests/ -v --html=reports/report.html --self-contained-html",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run Basic Tests",
+			"type": "shell",
+			"command": "py -m pytest tests/ -v",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run Example Test",
+			"type": "shell",
+			"command": "py example_test.py",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Git Add Commit Push",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-Command",
+				"git add -A; git commit -m \"feat: enable https-ready control panel\"; git push origin main"
+			],
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}
